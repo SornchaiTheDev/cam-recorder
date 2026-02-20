@@ -1,0 +1,26 @@
+cameras:
+  - name: "Front Door"
+    rtsp_url: "rtsp://admin:password@192.168.1.100:554/udp/av0_0"
+    enabled: true
+  - name: "Backyard"
+    rtsp_url: "rtsp://admin:password@192.168.1.101:554/udp/av0_0"
+    enabled: true
+  - name: "Garage"
+    rtsp_url: "rtsp://admin:password@192.168.1.102:554/udp/av0_0"
+    enabled: false
+  - name: "Webcam Test"
+    rtsp_url: "rtsp://localhost:8554/webcam"
+    enabled: false
+
+recording:
+  segment_duration: 5m
+  retention_days: 7
+  output_dir: "./recordings"
+  format: "mp4"
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+logging:
+  level: "info"

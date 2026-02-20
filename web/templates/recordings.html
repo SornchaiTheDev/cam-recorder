@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.pageTitle}}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>📹 Recordings</h1>
+        <nav>
+            <a href="/">Live View</a>
+            <a href="/recordings/list">Recordings</a>
+        </nav>
+    </header>
+    
+    <main>
+        <section class="recordings">
+            <div class="toolbar">
+                <select id="camera-filter" onchange="filterByCamera(this.value)">
+                    <option value="">All Cameras</option>
+                    {{range .cameras}}
+                    <option value="{{.Name}}" {{if eq .Name $.selectedCam}}selected{{end}}>{{.Name}}</option>
+                    {{end}}
+                </select>
+                <input type="text" id="search" placeholder="Search recordings...">
+                <button onclick="refreshRecordings()">Refresh</button>
+            </div>
+            
+            <div class="recordings-list" id="recordings-list">
+                {{range .recordings}}
+                <div class="recording-item">
+                    <div class="recording-info">
+                        <span class="camera-tag">{{.CameraName}}</span>
+                        <span class="filename">{{.Name}}</span>
+                        <span class="meta">{{.SizeHR}} | {{.CreatedAt.Format "2006-01-02 15:04:05"}}</span>
+                    </div>
+                    <div class="recording-actions">
+                        <a href="/play/{{.CameraName}}/{{.Name}}" class="btn">Play</a>
+                        <a href="/dl/{{.CameraName}}/{{.Name}}" class="btn" download>Download</a>
+                        <button class="btn btn-danger" onclick="deleteRecording('{{.CameraName}}', '{{.Name}}')">Delete</button>
+                    </div>
+                </div>
+                {{else}}
+                <p class="no-recordings">No recordings found.</p>
+                {{end}}
+            </div>
+        </section>
+        
+        <section class="info-panel">
+            <h2>Storage</h2>
+            <div id="storage-info">
+                <div class="stat-row">
+                    <span class="stat-label">Total Size:</span>
+                    <span id="total-size">Loading...</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">File Count:</span>
+                    <span id="file-count">-</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Retention:</span>
+                    <span id="retention">7 days</span>
+                </div>
+            </div>
+            
+            <h3>Per Camera</h3>
+            <div id="camera-storage">
+                Loading...
+            </div>
+        </section>
+    </main>
+    
+    <footer>
+        <p>IP Camera Recorder &copy; 2025</p>
+    </footer>
+    
+    <script src="/static/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStorageStats();
+        });
+        
+        function filterByCamera(camera) {
+            window.location.href = '/recordings/list?camera=' + encodeURIComponent(camera);
+        }
+    </script>
+</body>
+</html>

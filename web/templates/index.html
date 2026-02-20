@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.pageTitle}}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>📹 Camera Recorder</h1>
+        <nav>
+            <a href="/">Live View</a>
+            <a href="/recordings/list">Recordings</a>
+        </nav>
+    </header>
+    
+    <main>
+        <section class="cameras-grid">
+            {{range $idx, $cam := .cameras}}
+            <div class="camera-card" data-camera="{{$cam.Name}}" data-index="{{$idx}}">
+                <div class="camera-header">
+                    <h3>{{$cam.Name}}</h3>
+                    <span class="status-badge" data-status="{{$cam.Name}}">
+                        {{if $cam.Enabled}}Connecting...{{else}}Disabled{{end}}
+                    </span>
+                </div>
+                <div class="camera-stream">
+                    {{if $cam.Enabled}}
+                    <img src="/live/{{$cam.Name}}" alt="{{$cam.Name}}" class="stream-img">
+                    {{else}}
+                    <div class="stream-disabled">
+                        <span>Camera Disabled</span>
+                    </div>
+                    {{end}}
+                </div>
+                <div class="camera-footer">
+                    <a href="/camera/{{$cam.Name}}" class="btn">Details</a>
+                    <button class="btn" onclick="toggleCamera('{{$cam.Name}}')" data-toggle="{{$cam.Name}}">
+                        {{if $cam.Enabled}}Stop{{else}}Start{{end}}
+                    </button>
+                </div>
+            </div>
+            {{else}}
+            <p class="no-cameras">No cameras configured. Edit config.yaml to add cameras.</p>
+            {{end}}
+        </section>
+        
+        <section class="info-panel">
+            <h2>System Status</h2>
+            <div id="status-info">
+                <div class="stat-row">
+                    <span class="stat-label">Cameras:</span>
+                    <span id="camera-count">{{len .cameras}}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Storage:</span>
+                    <span id="storage-info">Loading...</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Retention:</span>
+                    <span id="retention-days">7 days</span>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <footer>
+        <p>IP Camera Recorder &copy; 2025</p>
+    </footer>
+    
+    <script src="/static/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStatus();
+            loadStorageStats();
+            setInterval(updateStatus, 5000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Play Recording</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>▶ {{.filename}}</h1>
+        <nav>
+            <a href="/recordings/list">← Recordings</a>
+        </nav>
+    </header>
+    
+    <main class="player-page">
+        <div class="video-container">
+            <video id="video-player" controls autoplay>
+                <source src="{{.videoUrl}}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+        <div class="video-info">
+            <p><strong>Camera:</strong> {{.cameraName}}</p>
+            <p><strong>File:</strong> {{.filename}}</p>
+            <a href="{{.videoUrl}}" class="btn" download>Download</a>
+        </div>
+    </main>
+    
+    <footer>
+        <p>IP Camera Recorder &copy; 2025</p>
+    </footer>
+</body>
+</html>

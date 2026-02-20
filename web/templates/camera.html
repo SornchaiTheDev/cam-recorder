@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.camera.Name}} - Camera</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>{{.camera.Name}}</h1>
+        <nav>
+            <a href="/">← All Cameras</a>
+            <a href="/recordings/list?camera={{.camera.Name}}">Recordings</a>
+        </nav>
+    </header>
+    
+    <main>
+        <section class="camera-detail">
+            <div class="stream-large">
+                {{if .camera.Enabled}}
+                <img src="/live/{{.camera.Name}}" alt="{{.camera.Name}}">
+                {{else}}
+                <div class="stream-disabled">
+                    <span>Camera Disabled</span>
+                </div>
+                {{end}}
+            </div>
+            
+            <div class="camera-controls">
+                <h2>Controls</h2>
+                <div class="control-buttons">
+                    <button class="btn" onclick="startCamera('{{.camera.Name}}')" id="btn-start">Start Recording</button>
+                    <button class="btn btn-danger" onclick="stopCamera('{{.camera.Name}}')" id="btn-stop">Stop Recording</button>
+                </div>
+            </div>
+        </section>
+        
+        <section class="info-panel">
+            <h2>Status</h2>
+            <div id="camera-status">
+                <div class="stat-row">
+                    <span class="stat-label">Status:</span>
+                    <span id="rec-status">Loading...</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Uptime:</span>
+                    <span id="uptime">-</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">RTSP URL:</span>
+                    <span id="rtsp-url" class="url-masked">••••••••</span>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <footer>
+        <p>IP Camera Recorder &copy; 2025</p>
+    </footer>
+    
+    <script src="/static/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCameraStatus('{{.camera.Name}}');
+            setInterval(function() { updateCameraStatus('{{.camera.Name}}'); }, 5000);
+        });
+    </script>
+</body>
+</html>
