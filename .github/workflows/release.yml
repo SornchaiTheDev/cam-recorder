@@ -60,10 +60,10 @@ jobs:
           tar -czvf release/cam-recorder-linux-arm64.tar.gz -C bin cam-recorder-linux-arm64
           
           # Windows amd64
-          cd bin && zip ../release/cam-recorder-windows-amd64.zip cam-recorder-windows-amd64.exe
+          (cd bin && zip ../release/cam-recorder-windows-amd64.zip cam-recorder-windows-amd64.exe)
           
           # Windows arm64
-          cd bin && zip ../release/cam-recorder-windows-arm64.zip cam-recorder-windows-arm64.exe
+          (cd bin && zip ../release/cam-recorder-windows-arm64.zip cam-recorder-windows-arm64.exe)
           
           # macOS amd64
           tar -czvf release/cam-recorder-darwin-amd64.tar.gz -C bin cam-recorder-darwin-amd64
