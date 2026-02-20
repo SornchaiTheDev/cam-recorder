@@ -69,13 +69,13 @@ jobs:
           mkdir -p dist/windows-amd64
           cp bin/cam-recorder-windows-amd64.exe dist/windows-amd64/
           cp -r web dist/windows-amd64/
-          (cd dist/windows-amd64 && zip ../../release/cam-recorder-windows-amd64.zip .)
+          cd dist/windows-amd64 && zip -r ../../release/cam-recorder-windows-amd64.zip cam-recorder-windows-amd64.exe web && cd -
           
           # Windows arm64
           mkdir -p dist/windows-arm64
           cp bin/cam-recorder-windows-arm64.exe dist/windows-arm64/
           cp -r web dist/windows-arm64/
-          (cd dist/windows-arm64 && zip ../../release/cam-recorder-windows-arm64.zip .)
+          cd dist/windows-arm64 && zip -r ../../release/cam-recorder-windows-arm64.zip cam-recorder-windows-arm64.exe web && cd -
           
           # macOS amd64
           mkdir -p dist/darwin-amd64
