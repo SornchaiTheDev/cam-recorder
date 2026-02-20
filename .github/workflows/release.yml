@@ -54,22 +54,40 @@ jobs:
           mkdir -p release
           
           # Linux amd64
-          tar -czvf release/cam-recorder-linux-amd64.tar.gz -C bin cam-recorder-linux-amd64
+          mkdir -p dist/linux-amd64
+          cp bin/cam-recorder-linux-amd64 dist/linux-amd64/
+          cp -r web dist/linux-amd64/
+          tar -czvf release/cam-recorder-linux-amd64.tar.gz -C dist/linux-amd64 .
           
           # Linux arm64
-          tar -czvf release/cam-recorder-linux-arm64.tar.gz -C bin cam-recorder-linux-arm64
+          mkdir -p dist/linux-arm64
+          cp bin/cam-recorder-linux-arm64 dist/linux-arm64/
+          cp -r web dist/linux-arm64/
+          tar -czvf release/cam-recorder-linux-arm64.tar.gz -C dist/linux-arm64 .
           
           # Windows amd64
-          (cd bin && zip ../release/cam-recorder-windows-amd64.zip cam-recorder-windows-amd64.exe)
+          mkdir -p dist/windows-amd64
+          cp bin/cam-recorder-windows-amd64.exe dist/windows-amd64/
+          cp -r web dist/windows-amd64/
+          (cd dist/windows-amd64 && zip ../../release/cam-recorder-windows-amd64.zip .)
           
           # Windows arm64
-          (cd bin && zip ../release/cam-recorder-windows-arm64.zip cam-recorder-windows-arm64.exe)
+          mkdir -p dist/windows-arm64
+          cp bin/cam-recorder-windows-arm64.exe dist/windows-arm64/
+          cp -r web dist/windows-arm64/
+          (cd dist/windows-arm64 && zip ../../release/cam-recorder-windows-arm64.zip .)
           
           # macOS amd64
-          tar -czvf release/cam-recorder-darwin-amd64.tar.gz -C bin cam-recorder-darwin-amd64
+          mkdir -p dist/darwin-amd64
+          cp bin/cam-recorder-darwin-amd64 dist/darwin-amd64/
+          cp -r web dist/darwin-amd64/
+          tar -czvf release/cam-recorder-darwin-amd64.tar.gz -C dist/darwin-amd64 .
           
           # macOS arm64
-          tar -czvf release/cam-recorder-darwin-arm64.tar.gz -C bin cam-recorder-darwin-arm64
+          mkdir -p dist/darwin-arm64
+          cp bin/cam-recorder-darwin-arm64 dist/darwin-arm64/
+          cp -r web dist/darwin-arm64/
+          tar -czvf release/cam-recorder-darwin-arm64.tar.gz -C dist/darwin-arm64 .
 
       - name: Generate checksums
         run: |
