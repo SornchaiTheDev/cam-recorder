@@ -102,7 +102,12 @@ func (r *Recorder) recordSegment(ctx context.Context) error {
 	args := []string{
 		"-rtsp_transport", "tcp",
 		"-i", r.rtspURL,
-		"-c", "copy",
+		// transcode video to H.264 and audio to AAC for broad container compatibility
+		"-c:v", "libx264",
+		"-preset", "veryfast",
+		"-crf", "23",
+		"-c:a", "aac",
+		"-b:a", "128k",
 		"-t", fmt.Sprintf("%d", segmentDuration),
 		"-movflags", "+faststart",
 		"-y",
