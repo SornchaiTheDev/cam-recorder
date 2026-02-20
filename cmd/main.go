@@ -77,6 +77,7 @@ func main() {
 		fmt.Println("\n=====================================")
 		fmt.Println("Shutting down...")
 		cancel()
+		server.Stop()
 		recManager.StopAll()
 		store.Stop()
 	}()

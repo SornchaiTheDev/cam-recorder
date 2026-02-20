@@ -15,11 +15,12 @@ import (
 )
 
 type Server struct {
-	config   *config.Config
-	recorder *recorder.RecorderManager
-	storage  *storage.Manager
-	mjpeg    *recorder.MJPEGManager
-	Router   *gin.Engine
+	config     *config.Config
+	recorder   *recorder.RecorderManager
+	storage    *storage.Manager
+	mjpeg      *recorder.MJPEGManager
+	Router     *gin.Engine
+	httpServer *http.Server
 }
 
 func NewServer(cfg *config.Config, rec *recorder.RecorderManager, store *storage.Manager) *Server {
@@ -66,7 +67,37 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	addr := fmt.Sprintf("%s:%d", s.config.Server.Host, s.config.Server.Port)
-	return s.Router.Run(addr)
+	s.httpServer = &http.Server{
+		Addr:    addr,
+		Handler: s.Router,
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errCh <- err
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		s.httpServer.Shutdown(shutdownCtx)
+		s.mjpeg.StopAll()
+		return nil
+	case err := <-errCh:
+		return err
+	}
+}
+
+func (s *Server) Stop() {
+	if s.httpServer != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		s.httpServer.Shutdown(shutdownCtx)
+	}
+	s.mjpeg.StopAll()
 }
 
 func (s *Server) handleIndex(c *gin.Context) {
