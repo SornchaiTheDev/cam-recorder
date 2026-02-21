@@ -3,6 +3,7 @@ package recorder
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -60,6 +61,7 @@ func (r *Recorder) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
+	r.stopCh = make(chan struct{})
 	go r.runRecorder(ctx)
 	r.running = true
 	r.startTime = time.Now()
@@ -77,17 +79,25 @@ func (r *Recorder) runRecorder(ctx context.Context) {
 			r.stopFFmpeg()
 			return
 		default:
-			if err := r.recordSegment(ctx); err != nil {
+			retryDelay, isPermanent, err := r.recordSegment(ctx)
+			if err != nil {
 				r.mu.Lock()
 				r.lastError = err
 				r.mu.Unlock()
-				time.Sleep(5 * time.Second)
+
+				errType := "transient"
+				if isPermanent {
+					errType = "permanent"
+				}
+				log.Printf("[%s] Recording failed (%s): %v. Retrying in %v...",
+					r.cameraName, errType, err, retryDelay)
+				time.Sleep(retryDelay)
 			}
 		}
 	}
 }
 
-func (r *Recorder) recordSegment(ctx context.Context) error {
+func (r *Recorder) recordSegment(ctx context.Context) (time.Duration, bool, error) {
 	timestamp := time.Now().Format("20060102_150405")
 	safeName := strings.ReplaceAll(r.cameraName, " ", "_")
 	filename := fmt.Sprintf("%s_%s.%s",
@@ -102,7 +112,9 @@ func (r *Recorder) recordSegment(ctx context.Context) error {
 	args := []string{
 		"-rtsp_transport", "tcp",
 		"-i", r.rtspURL,
-		// transcode video to H.264 and audio to AAC for broad container compatibility
+		"-timeout", "30000000",
+		"-fflags", "+genpts",
+		"-rw_timeout", "10000000",
 		"-c:v", "libx264",
 		"-preset", "veryfast",
 		"-crf", "23",
@@ -116,14 +128,42 @@ func (r *Recorder) recordSegment(ctx context.Context) error {
 
 	r.cmd = exec.CommandContext(ctx, "ffmpeg", args...)
 
-	if err := r.cmd.Run(); err != nil {
+	if runErr := r.cmd.Run(); runErr != nil {
 		if ctx.Err() == context.Canceled {
-			return nil
+			return 0, false, nil
 		}
-		return fmt.Errorf("ffmpeg error: %w", err)
+		retryDelay, isPermanent := classifyFFmpegError(runErr)
+		return retryDelay, isPermanent, fmt.Errorf("ffmpeg error: %w", runErr)
 	}
 
-	return nil
+	return 0, false, nil
+}
+
+func classifyFFmpegError(err error) (retryDelay time.Duration, isPermanent bool) {
+	errStr := err.Error()
+
+	permanentErrors := []string{
+		"404",
+		"not found",
+		"invalid",
+		"unauthorized",
+		"authentication failed",
+		"forbidden",
+		"protocol not supported",
+		"no such file",
+		"incorrect password",
+		"credential",
+		"login",
+	}
+
+	errLower := strings.ToLower(errStr)
+	for _, p := range permanentErrors {
+		if strings.Contains(errLower, p) {
+			return time.Minute * 5, true
+		}
+	}
+
+	return time.Second * 5, false
 }
 
 func (r *Recorder) stopFFmpeg() {
@@ -141,7 +181,10 @@ func (r *Recorder) Stop() {
 		return
 	}
 
-	close(r.stopCh)
+	select {
+	case r.stopCh <- struct{}{}:
+	default:
+	}
 	r.running = false
 }
 
@@ -361,11 +404,13 @@ func sortSegmentsByDateDesc(segments []RecordingSegment) {
 }
 
 type MJPEGStreamer struct {
-	rtspURL string
-	cmd     *exec.Cmd
-	stopCh  chan struct{}
-	running bool
-	mu      sync.Mutex
+	rtspURL       string
+	cmd           *exec.Cmd
+	stopCh        chan struct{}
+	running       bool
+	mu            sync.Mutex
+	frameCallback func([]byte)
+	lastError     error
 }
 
 func NewMJPEGStreamer(rtspURL string) *MJPEGStreamer {
@@ -383,9 +428,56 @@ func (m *MJPEGStreamer) Start(ctx context.Context, frameCallback func([]byte)) e
 		return fmt.Errorf("streamer already running")
 	}
 
+	m.stopCh = make(chan struct{})
+	m.frameCallback = frameCallback
+	m.running = true
+
+	go m.runStreamer(ctx)
+
+	return nil
+}
+
+func (m *MJPEGStreamer) runStreamer(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			m.stopFFmpeg()
+			m.setRunning(false)
+			return
+		case <-m.stopCh:
+			m.stopFFmpeg()
+			m.setRunning(false)
+			return
+		default:
+			if err := m.streamFrame(ctx); err != nil {
+				m.mu.Lock()
+				m.lastError = err
+				m.mu.Unlock()
+
+				retryDelay, isPermanent := classifyFFmpegError(err)
+				errType := "transient"
+				if isPermanent {
+					errType = "permanent"
+				}
+				log.Printf("[MJPEG] Stream failed (%s): %v. Retrying in %v...", errType, err, retryDelay)
+				m.stopFFmpeg()
+				time.Sleep(retryDelay)
+			}
+		}
+	}
+}
+
+func (m *MJPEGStreamer) streamFrame(ctx context.Context) error {
+	m.mu.Lock()
+	rtspURL := m.rtspURL
+	m.mu.Unlock()
+
 	args := []string{
 		"-rtsp_transport", "tcp",
-		"-i", m.rtspURL,
+		"-i", rtspURL,
+		"-timeout", "30000000",
+		"-fflags", "+genpts",
+		"-rw_timeout", "10000000",
 		"-vf", "fps=10,scale=640:-1",
 		"-c:v", "mjpeg",
 		"-q:v", "5",
@@ -393,7 +485,9 @@ func (m *MJPEGStreamer) Start(ctx context.Context, frameCallback func([]byte)) e
 		"-",
 	}
 
+	m.mu.Lock()
 	m.cmd = exec.CommandContext(ctx, "ffmpeg", args...)
+	m.mu.Unlock()
 
 	stdout, err := m.cmd.StdoutPipe()
 	if err != nil {
@@ -404,11 +498,26 @@ func (m *MJPEGStreamer) Start(ctx context.Context, frameCallback func([]byte)) e
 		return fmt.Errorf("failed to start ffmpeg: %w", err)
 	}
 
-	m.running = true
+	m.mu.Lock()
+	callback := m.frameCallback
+	m.mu.Unlock()
 
-	go m.readFrames(stdout, frameCallback)
+	m.readFrames(stdout, callback)
+
+	if err := m.cmd.Wait(); err != nil {
+		if ctx.Err() == context.Canceled {
+			return nil
+		}
+		return fmt.Errorf("ffmpeg error: %w", err)
+	}
 
 	return nil
+}
+
+func (m *MJPEGStreamer) setRunning(v bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.running = v
 }
 
 func (m *MJPEGStreamer) readFrames(stdout interface{ Read([]byte) (int, error) }, callback func([]byte)) {
@@ -463,12 +572,25 @@ func (m *MJPEGStreamer) Stop() {
 		return
 	}
 
-	close(m.stopCh)
+	select {
+	case m.stopCh <- struct{}{}:
+	default:
+	}
+	m.stopFFmpegLocked()
+	m.running = false
+}
+
+func (m *MJPEGStreamer) stopFFmpeg() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stopFFmpegLocked()
+}
+
+func (m *MJPEGStreamer) stopFFmpegLocked() {
 	if m.cmd != nil && m.cmd.Process != nil {
 		m.cmd.Process.Signal(os.Interrupt)
 		m.cmd.Wait()
 	}
-	m.running = false
 }
 
 func (m *MJPEGStreamer) IsRunning() bool {
